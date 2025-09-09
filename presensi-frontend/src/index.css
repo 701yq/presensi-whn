@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* warna brand untuk UI login */
+:root { --brand: #1565c0; }
+body { @apply bg-white text-gray-900; }

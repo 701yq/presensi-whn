@@ -1,0 +1,17 @@
+# --- Laravel (backend) ---
+/presensi-api/vendor/
+/presensi-api/public/storage
+/presensi-api/storage/*.key
+/presensi-api/.env
+
+# --- React/Vite (frontend) ---
+/presensi-frontend/node_modules/
+/presensi-frontend/dist/
+/presensi-frontend/.vite/
+/presensi-frontend/.env
+/presensi-frontend/.env.*
+
+# --- umum / OS / editor ---
+.vscode/
+.DS_Store
+Thumbs.db
