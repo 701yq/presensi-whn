@@ -10,9 +10,6 @@ export default function Layout({ children }: { children: ReactNode }) {
       // Hapus token JWT dari localStorage
       localStorage.removeItem("token");
 
-      // (Opsional) Bisa juga beri notifikasi logout sukses
-      // alert("Logout berhasil");
-
       // Redirect ke halaman login
       navigate("/", { replace: true });
     } catch (err) {
