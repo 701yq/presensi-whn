@@ -4,17 +4,33 @@ import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { QrCode, Pencil, Check, Info as InfoIcon } from "lucide-react";
 import QRModal from "../components/QRModal";
-import StatusSelect from "../components/StatusSelect";
+import EditScheduleModal from "../components/EditScheduleModal";
 import InfoModal from "../components/InfoModal";
-import Modal from "../components/Modal";
+import { api } from "../lib/api";
 
-import {
-  getScheduleById,
-  updateScheduleFields,
-  updateStudentStatus,
-  type Schedule,
-  type Status,
-} from "../store/scheduleStore";
+// ----- Typing lokal -----
+type Student = {
+  id: string;
+  nim: string;
+  nama: string;
+  waktu: string | null;
+  lat?: number;
+  lng?: number;
+};
+
+export type Schedule = {
+  id: string;
+  kode: string;
+  mataKuliah: string;
+  kelas: string;
+  jumlah: number;
+  hari: string;
+  mulai: string;
+  selesai: string;
+  qrPayload: string;
+  createdAt: string;
+  students: Student[];
+};
 
 type InfoPayload = { lat: number; lng: number; waktu: string };
 
@@ -23,41 +39,52 @@ export default function RekapDetail() {
   const navigate = useNavigate();
 
   const [sched, setSched] = useState<Schedule | null>(null);
-
-  // modal states
   const [openQR, setOpenQR] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [infoFor, setInfoFor] = useState<InfoPayload | null>(null);
 
-  // form edit state lokal
-  const [fKode, setFKode] = useState("");
-  const [fMK, setFMK] = useState("");
-  const [fKelas, setFKelas] = useState("");
-  const [fJumlah, setFJumlah] = useState<number | "">("");
-  const [fHari, setFHari] = useState("");
-  const [fMulai, setFMulai] = useState("");
-  const [fSelesai, setFSelesai] = useState("");
+  // ----- Ambil data presensi berdasarkan jadwal_id -----
+  const loadData = async (jadwalId: string) => {
+    try {
+      const resJ = await api.get(`/jadwal/${jadwalId}`);
+      const resP = await api.get(`/presensi/jadwal/${jadwalId}`);
 
-  // load data
+      const jadwalApi = resJ.data;
+      const presensiList = resP.data || [];
+
+      const schedule: Schedule = {
+        id: String(jadwalApi.id),
+        kode: jadwalApi.kode_mk ?? "",
+        mataKuliah: jadwalApi.nama_mk ?? "",
+        kelas: "",
+        jumlah: jadwalApi.jumlah ?? 0,
+        hari: "",
+        mulai: jadwalApi.jam_mulai ?? "",
+        selesai: jadwalApi.jam_selesai ?? "",
+        qrPayload: jadwalApi.token_qr ?? "",
+        createdAt: new Date().toISOString(),
+        students: presensiList.map((p: any) => ({
+          id: String(p.presensi_id),
+          nim: p.nim,
+          nama: p.nama_mahasiswa ?? "",
+          waktu: p.waktu ?? null,
+          lat: p.lat ? Number(p.lat) : undefined,
+          lng: p.lng ? Number(p.lng) : undefined,
+        })),
+      };
+
+      setSched(schedule);
+    } catch (err) {
+      console.error("Gagal memuat rekap:", err);
+      setSched(null);
+    }
+  };
+
   useEffect(() => {
-    if (!id) return;
-    const s = getScheduleById(id) ?? null;
-    setSched(s);
+    if (id) loadData(id);
   }, [id]);
 
-  // ketika buka modal edit, prefill field dari sched
-  useEffect(() => {
-    if (openEdit && sched) {
-      setFKode(sched.kode);
-      setFMK(sched.mataKuliah);
-      setFKelas(sched.kelas);
-      setFJumlah(sched.jumlah ?? "");
-      setFHari(sched.hari);
-      setFMulai(sched.mulai);
-      setFSelesai(sched.selesai);
-    }
-  }, [openEdit, sched]);
-
+  // ----- Format tanggal hari ini -----
   const today = useMemo(
     () =>
       new Date().toLocaleDateString("id-ID", {
@@ -71,29 +98,10 @@ export default function RekapDetail() {
 
   const students = sched?.students ?? [];
 
-  const handleChangeStatus = (studentId: string, s: Status) => {
+  // ----- Refresh data setelah edit -----
+  const handleSaveEdit = async () => {
     if (!sched) return;
-    updateStudentStatus(sched.id, studentId, s);
-    setSched(getScheduleById(sched.id) ?? null);
-  };
-
-  const submitEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sched) return;
-
-    updateScheduleFields(sched.id, {
-      kode: fKode.trim(),
-      mataKuliah: fMK.trim(),
-      kelas: fKelas.trim(),
-      jumlah: fJumlah === "" ? 0 : Number(fJumlah),
-      hari: fHari,
-      mulai: fMulai,
-      selesai: fSelesai,
-    });
-
-    const updated = getScheduleById(sched.id) ?? null;
-    setSched(updated);
-    setOpenEdit(false);
+    await loadData(sched.id);
   };
 
   return (
@@ -107,8 +115,7 @@ export default function RekapDetail() {
             {sched ? (
               <p className="text-sm text-gray-600 mt-1">
                 <span className="font-medium">{sched.kode}</span> —{" "}
-                {sched.mataKuliah} • Kelas {sched.kelas} • {sched.hari} (
-                {sched.mulai}–{sched.selesai})
+                {sched.mataKuliah}
               </p>
             ) : (
               <p className="text-sm text-gray-400 mt-1">Memuat data…</p>
@@ -122,30 +129,29 @@ export default function RekapDetail() {
               onClick={() => setOpenQR(true)}
               disabled={!sched}
             >
-              <QrCode size={16} />
-              QR
+              <QrCode size={16} /> QR
             </button>
+
             <button
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
               title="Edit jadwal"
               onClick={() => setOpenEdit(true)}
               disabled={!sched}
             >
-              <Pencil size={16} />
-              Edit
+              <Pencil size={16} /> Edit
             </button>
+
             <button
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
               title="Selesai (kembali ke Dashboard)"
               onClick={() => navigate("/dashboard", { replace: true })}
             >
-              <Check size={16} />
-              Selesai
+              <Check size={16} /> Selesai
             </button>
           </div>
         </div>
 
-        {/* Tabel mahasiswa */}
+        {/* ---------- Tabel Mahasiswa ---------- */}
         <div className="mt-6 bg-white rounded-2xl shadow-md">
           <div className="p-6 pb-0">
             <h2 className="text-lg font-semibold">Daftar Mahasiswa</h2>
@@ -159,7 +165,6 @@ export default function RekapDetail() {
                   <th className="text-left py-3">NIM</th>
                   <th className="text-left py-3">Nama</th>
                   <th className="text-left py-3">Waktu</th>
-                  <th className="text-left py-3">Status</th>
                   <th className="text-left py-3">Info</th>
                 </tr>
               </thead>
@@ -177,12 +182,6 @@ export default function RekapDetail() {
                               dateStyle: "short",
                             })
                           : "-"}
-                      </td>
-                      <td className="py-3">
-                        <StatusSelect
-                          value={mhs.status}
-                          onChange={(s) => handleChangeStatus(mhs.id, s)}
-                        />
                       </td>
                       <td className="py-3">
                         <button
@@ -203,7 +202,7 @@ export default function RekapDetail() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-gray-500">
+                    <td colSpan={5} className="py-10 text-center text-gray-500">
                       Belum ada data presensi mahasiswa.
                     </td>
                   </tr>
@@ -215,8 +214,6 @@ export default function RekapDetail() {
       </div>
 
       {/* ---------- Modals ---------- */}
-
-      {/* Modal QR */}
       <QRModal
         open={openQR}
         onClose={() => setOpenQR(false)}
@@ -224,112 +221,15 @@ export default function RekapDetail() {
         onSave={() => setOpenQR(false)}
       />
 
-      {/* Modal Edit (form internal) */}
-      <Modal
-        open={openEdit}
-        onClose={() => setOpenEdit(false)}
-        title="Ubah Jadwal"
-        widthClass="max-w-lg"
-      >
-        <form onSubmit={submitEdit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-gray-600">Kode</label>
-              <input
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={fKode}
-                onChange={(e) => setFKode(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-600">Kelas</label>
-              <input
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={fKelas}
-                onChange={(e) => setFKelas(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+      {sched && (
+        <EditScheduleModal
+          open={openEdit}
+          onClose={() => setOpenEdit(false)}
+          scheduleId={sched.id}
+          onSave={handleSaveEdit}
+        />
+      )}
 
-          <div>
-            <label className="text-sm text-gray-600">Mata Kuliah</label>
-            <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
-              value={fMK}
-              onChange={(e) => setFMK(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="text-sm text-gray-600">Jumlah Mahasiswa</label>
-              <input
-                type="number"
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={fJumlah}
-                onChange={(e) =>
-                  setFJumlah(
-                    e.target.value === "" ? "" : Number(e.target.value)
-                  )
-                }
-                min={0}
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-600">Hari</label>
-              <input
-                className="mt-1 w-full rounded-lg border px-3 py-2"
-                value={fHari}
-                onChange={(e) => setFHari(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm text-gray-600">Mulai</label>
-                <input
-                  type="time"
-                  className="mt-1 w-full rounded-lg border px-3 py-2"
-                  value={fMulai}
-                  onChange={(e) => setFMulai(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">Selesai</label>
-                <input
-                  type="time"
-                  className="mt-1 w-full rounded-lg border px-3 py-2"
-                  value={fSelesai}
-                  onChange={(e) => setFSelesai(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setOpenEdit(false)}
-              className="px-4 py-2 rounded-lg border"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-[#1E63B4] text-white"
-            >
-              Simpan
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal Info (peta & waktu) */}
       {infoFor && (
         <InfoModal
           open={true}

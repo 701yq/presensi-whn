@@ -1,3 +1,4 @@
+// src/routes/ProtectedRoute.tsx
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -12,20 +13,39 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   useEffect(() => {
     let alive = true;
 
-    // cek sesi: kalau 200 artinya sudah login
-    api
-      .get("/api/user")
-      .then(() => {
-        if (alive) setAllowed(true);
-      })
-      .catch(() => {
+    async function verifyTokenRequest() {
+      const token = localStorage.getItem("jwt_token");
+      console.log("ProtectedRoute: token from localStorage:", token);
+
+      if (!token) {
+        setAllowed(false);
+        return;
+      }
+
+      try {
+        const resp = await api.get("/verify-token");
+        console.log("verify-token response:", resp.status, resp.data);
+
+        if (resp.status === 200 && alive) {
+          setAllowed(true);
+        } else if (alive) {
+          setAllowed(false);
+        }
+      } catch (err) {
+        console.error("verify-token error:", err);
         if (alive) setAllowed(false);
-      });
+      }
+    }
+
+    verifyTokenRequest();
 
     return () => {
       alive = false;
     };
   }, []);
+
+  // log status allowed setiap render
+  console.log("ProtectedRoute allowed:", allowed);
 
   if (allowed === null) {
     return (
@@ -35,10 +55,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (allowed === false) {
+  if (!allowed) {
+    // hapus token jika tidak valid
+    localStorage.removeItem("jwt_token");
     return <Navigate to="/" replace />;
   }
 
-  // allowed === true
   return <>{children}</>;
 }

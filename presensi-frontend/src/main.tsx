@@ -6,7 +6,6 @@ import "./index.css";
 
 import LoginPage from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
-import Courses from "./pages/Courses";
 import RekapDetail from "./pages/RekapDetail";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -21,15 +20,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           element={
             <ProtectedRoute>
               <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/courses"
-          element={
-            <ProtectedRoute>
-              <Courses />
             </ProtectedRoute>
           }
         />

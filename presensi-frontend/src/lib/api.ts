@@ -1,14 +1,24 @@
-import axios from "axios";
+// src/lib/api.ts
+import axios, { AxiosHeaders } from "axios";
 
-export const api = axios.create({
-  baseURL: "http://localhost:8000",
-  withCredentials: true,
-  headers: {
+const api = axios.create({
+  baseURL: "http://localhost:3000",
+  headers: new AxiosHeaders({
     Accept: "application/json",
-    "X-Requested-With": "XMLHttpRequest",
-  },
+    "Content-Type": "application/json",
+  }),
 });
 
-// CSRF
-api.defaults.xsrfCookieName = "XSRF-TOKEN";
-api.defaults.xsrfHeaderName = "X-XSRF-TOKEN";
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("jwt_token");
+  if (token) {
+    // Gunakan set() dari AxiosHeaders
+    if (!config.headers) {
+      config.headers = new AxiosHeaders();
+    }
+    (config.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+  }
+  return config;
+});
+
+export { api };
