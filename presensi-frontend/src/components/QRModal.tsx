@@ -5,8 +5,8 @@ import { QRCodeCanvas } from "qrcode.react";
 type Props = {
   open: boolean;
   onClose: () => void;
-  payload: string;               // value yang di-encode
-  onSave: () => void;            // simpan ke storage
+  payload: string; // value yang di-encode
+  onSave: () => void; // simpan ke storage
 };
 
 export default function QRModal({ open, onClose, payload, onSave }: Props) {
@@ -17,7 +17,7 @@ export default function QRModal({ open, onClose, payload, onSave }: Props) {
     if (!url) return;
     const a = document.createElement("a");
     a.href = url;
-    a.download = "qr-presensi.png";
+    a.download = "QR-Presensi.png";
     a.click();
   };
 
@@ -27,13 +27,23 @@ export default function QRModal({ open, onClose, payload, onSave }: Props) {
         <QRCodeCanvas value={payload} size={220} includeMargin ref={ref} />
         <div className="w-full">
           <p className="text-sm text-gray-600">Kode Presensi</p>
-          <input className="w-full border-b outline-none py-1" readOnly value={payload} />
+          <input
+            className="w-full border-b outline-none py-1"
+            readOnly
+            value={payload}
+          />
         </div>
         <div className="flex gap-3 pt-2">
-          <button onClick={download} className="px-4 py-2 rounded-full bg-green-500 text-white">
+          <button
+            onClick={download}
+            className="px-4 py-2 rounded-full bg-green-500 text-white"
+          >
             Download
           </button>
-          <button onClick={onSave} className="px-4 py-2 rounded-full bg-[#1E63B4] text-white">
+          <button
+            onClick={onSave}
+            className="px-4 py-2 rounded-full bg-[#1E63B4] text-white"
+          >
             Simpan
           </button>
         </div>

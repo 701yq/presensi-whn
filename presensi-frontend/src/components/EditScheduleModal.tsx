@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import { api } from "../lib/api";
+import toast from "react-hot-toast";
+import { toMySQL, toLocalInputFormat } from "../utils/date";
 
 type Jadwal = {
   id: number;
@@ -39,7 +41,7 @@ export default function EditScheduleModal({
   const [listMK, setListMK] = useState<MataKuliah[]>([]);
   const [customMK, setCustomMK] = useState(false);
 
-  // 🔹 Ambil daftar mata kuliah + data jadwal saat modal dibuka
+  // Ambil daftar mata kuliah + data jadwal saat modal dibuka
   useEffect(() => {
     async function fetchData() {
       try {
@@ -47,10 +49,18 @@ export default function EditScheduleModal({
           api.get(`/jadwal/${scheduleId}`),
           api.get("/mata-kuliah"),
         ]);
-        setData(resJadwal.data);
+        const jadwal = resJadwal.data;
+
+        setData({
+          ...jadwal,
+          jam_mulai: toLocalInputFormat(jadwal.jam_mulai),
+          jam_selesai: toLocalInputFormat(jadwal.jam_selesai),
+        });
+
         setListMK(resMK.data);
       } catch (err) {
         console.error("Gagal memuat data:", err);
+        toast.error("Gagal memuat data jadwal");
       }
     }
 
@@ -62,7 +72,7 @@ export default function EditScheduleModal({
     setData((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
-  // 🔹 Simpan perubahan
+  // Simpan perubahan dengan notifikasi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!data) return;
@@ -71,16 +81,19 @@ export default function EditScheduleModal({
       await api.put(`/jadwal/${data.id}`, {
         kode_mk: data.kode_mk,
         nidn: data.nidn,
-        jam_mulai: data.jam_mulai,
-        jam_selesai: data.jam_selesai,
+        jam_mulai: toMySQL(data.jam_mulai),
+        jam_selesai: toMySQL(data.jam_selesai),
         token_qr: data.token_qr,
         deskripsi: data.deskripsi,
         jumlah: data.jumlah,
       });
+
+      toast.success("Jadwal berhasil diperbarui! ");
       onSave();
       onClose();
     } catch (err) {
       console.error("Gagal mengupdate jadwal:", err);
+      toast.error("Gagal memperbarui jadwal");
     }
   };
 
@@ -120,7 +133,7 @@ export default function EditScheduleModal({
                   {m.nama_mk} ({m.kode_mk})
                 </option>
               ))}
-              <option value="__custom__">+ Tambah manual</option>
+              <option value="__custom__">(Tambah manual)</option>
             </select>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -141,7 +154,6 @@ export default function EditScheduleModal({
             </div>
           )}
 
-          {/* Tombol kembali hanya muncul jika mode custom aktif */}
           {customMK && (
             <button
               type="button"

@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
@@ -35,9 +34,14 @@ export default function Dashboard() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pendingPayload, setPendingPayload] = useState<string>("");
-  const [openQR, setOpenQR] = useState(false);
 
-  // 🔹 Ambil data user & jadwal dari backend
+  const [openQR, setOpenQR] = useState(false);
+  const [qrToken, setQrToken] = useState<string>("");
+
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  // Ambil data user & jadwal dari backend
   useEffect(() => {
     const token = localStorage.getItem("jwt_token");
     if (!token) {
@@ -59,7 +63,7 @@ export default function Dashboard() {
       });
   }, [navigate]);
 
-  // 🔹 Fungsi ambil data jadwal
+  // Fungsi ambil data jadwal
   const fetchJadwal = async () => {
     try {
       const resp = await api.get("/jadwal");
@@ -77,9 +81,9 @@ export default function Dashboard() {
     year: "numeric",
   });
 
-  // 🔹 Saat user klik “Simpan” di form
+  // Saat user klik “Simpan” di form
   const handleAddSubmit = (v: AddFormValue) => {
-    const payload = JSON.stringify({
+    const formData = {
       kode: v.kode,
       mataKuliah: v.mataKuliah,
       jumlah: v.jumlah,
@@ -87,14 +91,15 @@ export default function Dashboard() {
       selesai: v.selesai,
       deskripsi: v.deskripsi,
       token_qr: v.token_qr,
-    });
+    };
 
-    setPendingPayload(payload);
+    setPendingPayload(JSON.stringify(formData));
     setOpenAdd(false);
     setOpenQR(true);
+    setQrToken(v.token_qr);
   };
 
-  // 🔹 Saat user klik “Simpan QR” di modal QR
+  // Saat user klik “Simpan” di modal QR
   const handleQrSave = async () => {
     try {
       const data = JSON.parse(pendingPayload);
@@ -123,16 +128,40 @@ export default function Dashboard() {
     setOpenEdit(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Yakin ingin menghapus jadwal ini?")) return;
+  const handleDelete = (id: number) => {
+    setDeleteId(id);
+    setShowConfirmDelete(true);
+  };
+
+  // Fungsi konfirmasi hapus
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      await api.delete(`/jadwal/${id}`);
+      await api.delete(`/jadwal/${deleteId}`);
       toast.success("Jadwal berhasil dihapus!");
+      setShowConfirmDelete(false);
+      setDeleteId(null);
       fetchJadwal();
     } catch (err) {
       console.error(err);
       toast.error("Gagal menghapus jadwal");
     }
+  };
+
+  const cancelDelete = () => {
+    setShowConfirmDelete(false);
+    setDeleteId(null);
+  };
+
+  // Fungsi untuk menentukan status jadwal
+  const getStatus = (jadwal: Jadwal): string => {
+    const now = new Date();
+    const mulai = new Date(jadwal.jam_mulai);
+    const selesai = new Date(jadwal.jam_selesai);
+
+    if (now < mulai) return "Belum Mulai";
+    if (now >= mulai && now <= selesai) return "Berjalan";
+    return "Selesai";
   };
 
   return (
@@ -165,6 +194,7 @@ export default function Dashboard() {
                   <th className="text-left py-3">MATA KULIAH</th>
                   <th className="text-left py-3">JUMLAH</th>
                   <th className="text-left py-3">DESKRIPSI</th>
+                  <th className="text-left py-3">STATUS</th>
                   <th className="text-left py-3">REKAP</th>
                   <th className="text-left py-3">AKSI</th>
                 </tr>
@@ -176,6 +206,21 @@ export default function Dashboard() {
                     <td className="py-4">{row.nama_mk}</td>
                     <td className="py-4">{row.jumlah ?? 0}</td>
                     <td className="py-4">{row.deskripsi ?? "-"}</td>
+
+                    <td className="py-4">
+                      <span
+                        className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                          getStatus(row) === "Berjalan"
+                            ? "bg-green-100 text-green-700"
+                            : getStatus(row) === "Belum Mulai"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {getStatus(row)}
+                      </span>
+                    </td>
+
                     <td className="py-4">
                       <button
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full border text-gray-700 hover:bg-gray-50"
@@ -185,18 +230,17 @@ export default function Dashboard() {
                         <Plus size={16} />
                       </button>
                     </td>
+
                     <td className="py-4">
                       <div className="flex items-center gap-3">
                         <button
                           className="text-blue-600 hover:text-blue-700"
-                          aria-label="Edit"
                           onClick={() => handleEdit(row.id)}
                         >
                           <Pencil size={18} />
                         </button>
                         <button
                           className="text-red-600 hover:text-red-700"
-                          aria-label="Delete"
                           onClick={() => handleDelete(row.id)}
                         >
                           <Trash2 size={18} />
@@ -205,9 +249,10 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 ))}
+
                 {!data.length && (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-gray-500">
+                    <td colSpan={8} className="py-10 text-center text-gray-500">
                       Belum ada jadwal. Klik “Tambah Jadwal”.
                     </td>
                   </tr>
@@ -218,6 +263,35 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ---------- Popup Konfirmasi Hapus ---------- */}
+      {showConfirmDelete && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-80">
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              Konfirmasi Hapus
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus jadwal ini?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Modals ---------- */}
       <AddScheduleModal
         open={openAdd}
         onClose={() => setOpenAdd(false)}
@@ -227,7 +301,7 @@ export default function Dashboard() {
       <QRModal
         open={openQR}
         onClose={() => setOpenQR(false)}
-        payload={pendingPayload}
+        payload={qrToken}
         onSave={handleQrSave}
       />
 

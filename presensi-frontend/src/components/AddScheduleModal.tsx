@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Modal from "./Modal";
 import { api } from "../lib/api";
+import { toMySQL } from "../utils/date";
 
 export type AddFormValue = {
   kode: string;
@@ -39,7 +40,7 @@ export default function AddScheduleModal({ open, onClose, onSubmit }: Props) {
   const [listMK, setListMK] = useState<MataKuliah[]>([]);
   const [customMK, setCustomMK] = useState(false);
 
-  // 🔹 Ambil data mata kuliah saat modal dibuka
+  // Ambil data mata kuliah saat modal dibuka
   useEffect(() => {
     async function fetchMK() {
       try {
@@ -64,7 +65,7 @@ export default function AddScheduleModal({ open, onClose, onSubmit }: Props) {
   const setField = (k: keyof AddFormValue, val: any) =>
     setV((s) => ({ ...s, [k]: val }));
 
-  // 🔹 Simpan data jadwal (jika manual, buat MK dulu)
+  // Simpan data jadwal (jika manual, buat MK dulu)
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!v.kode || !v.mulai || !v.selesai) {
@@ -82,7 +83,11 @@ export default function AddScheduleModal({ open, onClose, onSubmit }: Props) {
       }
 
       // Lanjutkan kirim ke parent untuk buat jadwal
-      onSubmit(v);
+      onSubmit({
+        ...v,
+        mulai: toMySQL(v.mulai) || "",
+        selesai: toMySQL(v.selesai) || "",
+      });
     } catch (err) {
       console.error("Gagal menambah mata kuliah:", err);
       alert("Gagal menambah mata kuliah. Pastikan kode MK belum terpakai.");
@@ -124,7 +129,7 @@ export default function AddScheduleModal({ open, onClose, onSubmit }: Props) {
                   {m.nama_mk} ({m.kode_mk})
                 </option>
               ))}
-              <option value="__custom__">+ Tambah manual</option>
+              <option value="__custom__">(Tambah manual)</option>
             </select>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

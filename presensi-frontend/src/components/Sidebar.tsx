@@ -1,3 +1,4 @@
+// src/components/Sidebar.tsx
 import { LayoutGrid, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import logo from "../assets/logo.png";
